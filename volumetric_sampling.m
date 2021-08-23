@@ -9,8 +9,12 @@ r=randperm(size(Y,1));
 Ysubset(1,:)=Y(r(1),:);
 Yleft=Y(r(2:end),:);
 else
+    if length(Yfirst)==1
     Ysubset(1,:)=Yleft(Yfirst,:);
     Yleft=Yleft((1:size(Yleft,1))~=Yfirst,:);
+    else
+        Ysubset(1,:)=Yfirst;
+    end
 end
 
 %% Sampling 2nd point --- 2nd point must yield a distance to the first point that is included in the pairwise distances in Xsubset

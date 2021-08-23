@@ -51,10 +51,12 @@ zstack=max(imresize3(zstack,zstack_size),0);
 
 if ~isequal(starmapannotationfile,0)
 Spoints=s_annotation.points.*starmap_scale;
+starmap_filt=starmap;
 end
 
 if ~isequal(zstackannotationfile,0)
 Zpoints=z_annotation.points.*zstack_scale;
+Zstack_filt=zstack;
 end
 
 
@@ -124,15 +126,20 @@ plot3(Zpoints(:,1),Zpoints(:,2),Zpoints(:,3),'r.','MarkerSize',20);axis equal;ax
 legend('Confocal','Zstack');
 set(gca,'FontWeight','bold','FontSize',20,'TickLength',[0 0]);set(gcf,'Color','w');
 
-% [bhat,P,inlier_set,q]=rrwoc_wahba(Spoints,Zpoints,0.9,15,1,2000);
+[bhat,P,inlier_set,q]=rrwoc_wahba(Spoints,Zpoints,0.9,30,1,2000);
 
 % [vol_dist,P]=volumetric_distance_2(Spoints,Zpoints,10);
 
-[vol_dist]=knn_distance(Spoints(:,1:2),Zpoints(:,1:2),10,10);
-
-
+% [vol_dist]=knn_distance(Spoints,Zpoints,50,30);
+% M=munkres(-vol_dist);
+% 
+% [R,T,beta]=weighted_wahba(Spoints,M*Zpoints,max(M.*exp(vol_dist./2*0.1^2),[],2));
+% 
+% bhat=[R;T];
 
 Zpointshat=[Spoints ones(size(Spoints,1),1)]*bhat;
+
+[P.matched_cells_y,P.matched_cells_x]=find(pdist2(Zpoints,Zpointshat)<= 30);
 figure(3)
 subplot(1,2,2)
 hold on
@@ -142,21 +149,21 @@ legend('Registered Confocal','Zstack');
 set(gca,'FontWeight','bold','FontSize',20,'TickLength',[0 0]);set(gcf,'Color','w');
 
 
-starmap_histmatched=linhistmatch(log1p(starmap),minmax(max(log1p(zstack),[],3)),200,'regular');
+starmap_histmatched=linhistmatch(log1p(starmap_filt),minmax(max(log1p(Zstack_filt),[],3)),200,'regular');
 tic
 tform = affine3d([[bhat(1:3,1:3);bhat(4,:)] [0;0;0;1]]);
-starmap_moved=imwarp(starmap_histmatched,tform,'Outputview',imref3d(size(zstack)));
+starmap_moved=imwarp(starmap_histmatched,tform,'Outputview',imref3d(size(Zstack_filt)));
 toc
 
 
 figure(4)
 
 A=max(starmap_moved,[],3);
-B=max(minmax(log1p(zstack)),[],3);
+B=max(minmax(log1p(Zstack_filt)),[],3);
 
-I(:,:,1)=[A A zeros(size(B))];
+I(:,:,1)=[A A.*B zeros(size(B))];
 I(:,:,2)=[zeros(size(A)) zeros(size(A)) zeros(size(B))];
-I(:,:,3)=[zeros(size(A)) B B];
+I(:,:,3)=[zeros(size(A)) A.*B B];
 
 imagesc(I)
 hold on
@@ -166,7 +173,4 @@ for i=1:length(P.matched_cells_y)
  plot([Zpointshat(P.matched_cells_x(i),1)+size(A,2) Zpoints(P.matched_cells_y(i),1)+size(A,2)],[Zpointshat(P.matched_cells_x(i),2) Zpoints(P.matched_cells_y(i),2)],'w-','LineWidth',2);   
 end
 plot(Zpoints(P.matched_cells_y,1)+size(A,2),Zpoints(P.matched_cells_y,2),'c.','MarkerSize',10);
-plot(Zpoints(:,1)+size(A,2)+size(B,2),Zpoints(:,2),'c.','MarkerSize',10);
-title('Left:confocal, Middle: confocal+zstack, Right:zstack');
-xlabel('microns');ylabel('um');
-set(gca,'FontWeight','bold','FontSize',20,'TickLength',[0 0]);set(gcf,'Color','w');
+plot(Zpoints(:,1)+size(A,2)+size(A,2),Zpoints(:,2),'c.','MarkerSize',10);

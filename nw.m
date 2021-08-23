@@ -1,4 +1,5 @@
 function [T,P,skip,xhat]=nw(x,y,indelcost)
+%needleman-wunsch algorithm to calculate levenstein distance
 % match cost = -|x-y|
 % indel cost = -1
 
