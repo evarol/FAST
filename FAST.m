@@ -223,9 +223,9 @@ set(gca,'FontWeight','bold','FontSize',20,'TickLength',[0 0]);set(gcf,'Color','w
 % [R,T,beta]=weighted_wahba(Spoints,M*Zpoints,max(M.*exp(vol_dist./2*0.1^2),[],2));
 %
 
-[pl_dist]=procrustes_levenstein_distance(Spoints,Zpoints,150,10,15,0);
+[pl_dist]=procrustes_levenstein_distance(Spoints,Zpoints,200,10,20,0);
 [s_idx,z_idx]=find(pl_dist==min(pl_dist(:)));
-[R,T]=procrustes_levenstein_distance_decoder(Spoints,Zpoints,s_idx,z_idx,150,10,15);
+[R,T]=procrustes_levenstein_distance_decoder(Spoints,Zpoints,s_idx,z_idx,200,10,20);
 
 for t=1:length(R)
     disp(['Showing solution ' num2str(t) ' out of ' num2str(length(R)) ' - number of matches: ' num2str(-pl_dist(s_idx(t),z_idx(t)))]);
