@@ -34,5 +34,5 @@ atransform(a_nan_idx)=a*beta(1) + beta(2);
 %wasserstein distance computation
 % atransformhat = histc(atransform,bbins)'; %discretizing the transformed time series
 % distance=wdist(atransformhat,bhat,1); %wasserstein distance computation between atransform and b
-distance=[]; %% turned this off since it seems to be not too useful
+distance=norm([abins ones(size(abins,1),1)]*beta-bbins); %% turned this off since it seems to be not too useful
 end
