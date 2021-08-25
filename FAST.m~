@@ -1,26 +1,18 @@
 clear all
 clc
 close all
-
-%% dependencies to load tiffs/nd2s
 addpath ./tiff_loading/jsonlab/
 addpath ./tiff_loading/utilities/
 addpath(genpath('./tiff_loading/Fiji.app'));
 javaaddpath('./tiff_loading/Fiji.app/mij.jar')
 
-
-%% auxillary functions
 minmax = @(x)((x-min(x(:)))./max(x(:)-min(x(:))));
 minmaxnnz = @(x)(max((x-min(x(x>0))+1)./max(x(:)-min(x(x>0))+1),0));
-vec=@(x)(x(:));
-
-%% image parameters
-confocal_scale = [1272.7922/2048 1272.7922/2048 44/22]; %x,y,z pixel dimension - user specified. VERY IMPORTANT to have real spatial dimensions
-zstack_scale = [1000/700 1000/700 2]; %x,y,z pixel dimension - user specified. VERY IMPORTANT to have real spatial dimensions
+% load register_this.mat
 
 %% Detection parameters
 z=6; %z-score to distinguish bright foreground from background
-sigma=2; %smoothing kernel to fill in gaps (to avoid spotty cells)
+sigma=2; %smoothing kernel to fill in gaps (to avoid detecting spotty cells)
 
 %% Registration parameters
 radius_parameter = 200; % how big of a window around each cell we look for matching partners between modalities
@@ -29,17 +21,17 @@ max_depth_parameter = 20; % what is the maximum depth in z shall we look for mat
 
 
 %% load data
-if ~exist('confocalfile')
+if ~exist('starmapfile')
     disp('Select confocal image...');
-    [confocalfile,confocalpath] = uigetfile('*','Select file to load','MultiSelect','on');
-    confocal=double(load_tiff([confocalpath confocalfile]));
-    confocal=double(confocal(:,:,:,2));
+    [starmapfile,starmappath] = uigetfile('*','Select file to load','MultiSelect','on');
+    starmap=double(load_tiff([starmappath starmapfile]));
+    starmap=double(starmap(:,:,:,2));
 end
 
-if ~exist('confocalannotationfile')
+if ~exist('starmapannotationfile')
     disp('Select confocal image annotation (if available)...');
-    [confocalannotationfile,confocalannotationpath] = uigetfile('*','Select file to load','MultiSelect','on');
-    if ~isequal(confocalannotationfile,0);s_annotation=load([confocalannotationpath confocalannotationfile]);end
+    [starmapannotationfile,starmapannotationpath] = uigetfile('*','Select file to load','MultiSelect','on');
+    if ~isequal(starmapannotationfile,0);s_annotation=load([starmapannotationpath starmapannotationfile]);end
 end
 
 if ~exist('zstackfile')
@@ -55,25 +47,24 @@ if ~exist('zstackannotationfile')
 end
 
 
-%% convert to micron dimensions
-confocal_size = size(confocal).*confocal_scale;
+
+starmap_scale = [1272.7922/2048 1272.7922/2048 44/22];
+zstack_scale = [1000/700 1000/700 2];
+starmap_size = size(starmap).*starmap_scale;
 zstack_size = size(zstack).*zstack_scale;
 
-%% resize image such that 1 pixel = 1um^3
-confocal=max(imresize3(confocal,confocal_size),0);
+starmap=max(imresize3(starmap,starmap_size),0);
 zstack=max(imresize3(zstack,zstack_size),0);
 
-%% load annotations if available
-if ~isequal(confocalannotationfile,0)
-    Spoints=s_annotation.points.*confocal_scale;
-    Iconfocal=log1p(confocal);
-    for t=1:size(Iconfocal,3)
-        It=imtophat(Iconfocal(:,:,t),strel('disk',11));
-        confocal_filt(:,:,t)=It;
+if ~isequal(starmapannotationfile,0)
+    Spoints=s_annotation.points.*starmap_scale;
+    Istarmap=log1p(starmap);
+    for t=1:size(Istarmap,3)
+        It=imtophat(Istarmap(:,:,t),strel('disk',11));
+        starmap_filt(:,:,t)=It;
     end
 end
 
-%% load annotations if available
 if ~isequal(zstackannotationfile,0)
     Zpoints=z_annotation.points.*zstack_scale;
     Izstack=log1p(zstack);
@@ -83,31 +74,31 @@ if ~isequal(zstackannotationfile,0)
     end
 end
 
-%% Automatic cell detection
-if isequal(confocalannotationfile,0)
-    %% pretty happy with this confocal segmentation
-    Iconfocal=log1p(confocal);
-    Bconfocal=zeros(size(Iconfocal));
-    for t=1:size(Iconfocal,3)
-        It=imtophat(Iconfocal(:,:,t),strel('disk',11));
-        confocal_filt(:,:,t)=It;
+
+if isequal(starmapannotationfile,0)
+    %% pretty happy with this starmap segmentation
+    Istarmap=log1p(starmap);
+    Bstarmap=zeros(size(Istarmap));
+    for t=1:size(Istarmap,3)
+        It=imtophat(Istarmap(:,:,t),strel('disk',11));
+        starmap_filt(:,:,t)=It;
         Itg=imgaussfilt(It,sigma);
         Itgz=double(zscore(Itg,[],'all')>z);
         figure(99)
-        imagesc([minmax(Iconfocal(:,:,t)) minmax(It);minmax(Itg) minmax(Itgz)+minmax(It)]);
-        Bconfocal(:,:,t)=Itgz;
+        imagesc([minmax(Istarmap(:,:,t)) minmax(It);minmax(Itg) minmax(Itgz)+minmax(It)]);
+        Bstarmap(:,:,t)=Itgz;
         drawnow
     end
     
-    Lconfocal=bwlabeln(Bconfocal);
-    confocalstats=regionprops3(Lconfocal);
+    Lstarmap=bwlabeln(Bstarmap);
+    starmapstats=regionprops3(Lstarmap);
     
-    Lfconfocal=Lconfocal;
-    [a,b]=ismember(Lconfocal(:),find(confocalstats.Volume<1200));
-    Lfconfocal(a==1)=0;
+    Lfstarmap=Lstarmap;
+    [a,b]=ismember(Lstarmap(:),find(starmapstats.Volume<1200));
+    Lfstarmap(a==1)=0;
     figure(1)
-    imagesc([minmax(max(log1p(confocal),[],3)) minmax(max(log1p(confocal),[],3)) + max(Lfconfocal>0,[],3)]);
-    Sstats = regionprops3(Lfconfocal);
+    imagesc([minmax(max(log1p(starmap),[],3)) minmax(max(log1p(starmap),[],3)) + max(Lfstarmap>0,[],3)]);
+    Sstats = regionprops3(Lfstarmap);
     Spoints = Sstats.Centroid;Svolumes=Sstats.Volume;Svolumes(any(isnan(Spoints),2),:)=[];Spoints(any(isnan(Spoints),2),:)=[];
 end
 
@@ -142,14 +133,14 @@ if isequal(zstackannotationfile,0)
     Zpoints = Zstats.Centroid;Zvolumes=Zstats.Volume;Zvolumes(any(isnan(Zpoints),2),:)=[];Zpoints(any(isnan(Zpoints),2),:)=[];
 end
 
-%% filter out garbage for image based registration (not used right now)
+%% filter out garbage
 
-% confocal_filt2=zeros(size(confocal_filt));
+% starmap_filt2=zeros(size(starmap_filt));
 %
 % for i=1:size(Spoints,1)
-%     confocal_filt2(round(Spoints(i,2)),round(Spoints(i,1)),round(Spoints(i,3)))=100;
+%     starmap_filt2(round(Spoints(i,2)),round(Spoints(i,1)),round(Spoints(i,3)))=100;
 % end
-% confocal_filt2=imgaussfilt3(confocal_filt2,5);
+% starmap_filt2=imgaussfilt3(starmap_filt2,5);
 %
 %
 % Zstack_filt2=zeros(size(Zstack_filt));
@@ -160,15 +151,15 @@ end
 % Zstack_filt2=imgaussfilt3(Zstack_filt2,5);
 %
 %
-% confocal_filt2=confocal_filt2.*confocal_filt;
+% starmap_filt2=starmap_filt2.*starmap_filt;
 % Zstack_filt2=Zstack_filt2.*Zstack_filt;
 
 %% pixel information extraction from each cell
 % figure
 % patchradius=[150 150 15];
 % for i=1:size(Spoints,1)
-%     newpatchradius=patch_bound(Spoints(i,[2 1 3]),patchradius(1:3),size(confocal_filt));
-%     S_patch{i}=max(confocal_filt(Spoints(i,2)-newpatchradius(1):Spoints(i,2)+newpatchradius(1),Spoints(i,1)-newpatchradius(2):Spoints(i,1)+newpatchradius(2),Spoints(i,3)-newpatchradius(3):Spoints(i,3)+newpatchradius(3)),[],3);
+%     newpatchradius=patch_bound(Spoints(i,[2 1 3]),patchradius(1:3),size(starmap_filt));
+%     S_patch{i}=max(starmap_filt(Spoints(i,2)-newpatchradius(1):Spoints(i,2)+newpatchradius(1),Spoints(i,1)-newpatchradius(2):Spoints(i,1)+newpatchradius(2),Spoints(i,3)-newpatchradius(3):Spoints(i,3)+newpatchradius(3)),[],3);
 %     S_patchsize{i}=size(S_patch{i});
 %     S_patch{i}=padarray(S_patch{i},floor([patchradius(1)+0.5 patchradius(2)+0.5]-floor(size(S_patch{i})/2)),'both');
 %     if size(S_patch{i},1)==2*patchradius(1)
@@ -229,8 +220,6 @@ plot3(Zpoints(:,1),Zpoints(:,2),Zpoints(:,3),'r.','MarkerSize',20);axis equal;ax
 legend('Confocal','Zstack');
 set(gca,'FontWeight','bold','FontSize',20,'TickLength',[0 0]);set(gcf,'Color','w');
 
-
-%% homage to all the previous methods that were garbage or slow (lol)
 % [bhat,P,inlier_set,q]=rrwoc_wahba(Spoints,Zpoints,0.9,30,1,2000);
 
 % [vol_dist,P]=volumetric_distance_2(Spoints,Zpoints,10);
@@ -245,8 +234,6 @@ set(gca,'FontWeight','bold','FontSize',20,'TickLength',[0 0]);set(gcf,'Color','w
 [s_idx,z_idx]=find(pl_dist==min(pl_dist(:)));
 [R,T]=procrustes_levenstein_distance_decoder(Spoints,Zpoints,s_idx,z_idx,radius_parameter,tightness_paramter,max_depth_parameter);
 
-
-%% Visualizing registration matches to certify by eye
 for t=1:length(R)
     disp(['Showing solution ' num2str(t) ' out of ' num2str(length(R)) ' - number of matches: ' num2str(-pl_dist(s_idx(t),z_idx(t)))]);
     bhat=[R{t};T{t}];
@@ -265,17 +252,17 @@ for t=1:length(R)
     set(gca,'FontWeight','bold','FontSize',20,'TickLength',[0 0]);set(gcf,'Color','w');
     
     
-    confocal_histmatched=linhistmatch(log1p(confocal_filt),minmax(max(log1p(Zstack_filt),[],3)),200,'regular');
+    starmap_histmatched=linhistmatch(log1p(starmap_filt),minmax(max(log1p(Zstack_filt),[],3)),200,'regular');
     tic
     tform = affine3d([[bhat(1:3,1:3);bhat(4,:)] [0;0;0;1]]);
-    confocal_moved=imwarp(confocal_histmatched,tform,'Outputview',imref3d(size(Zstack_filt)));
+    starmap_moved=imwarp(starmap_histmatched,tform,'Outputview',imref3d(size(Zstack_filt)));
     toc
     
     
     figure(4)
     
-    A=max(confocal_moved(:,:,max(Zpoints(z_idx(t),3)-5,1):min(Zpoints(z_idx(t),3)+5,size(confocal_moved,3))),[],3);
-    B=max(minmax(log1p(Zstack_filt(:,:,max(Zpoints(z_idx(t),3)-5,1):min(Zpoints(z_idx(t),3)+5,size(confocal_moved,3))))),[],3);
+    A=max(starmap_moved(:,:,max(Zpoints(z_idx(t),3)-5,1):min(Zpoints(z_idx(t),3)+5,size(starmap_moved,3))),[],3);
+    B=max(minmax(log1p(Zstack_filt(:,:,max(Zpoints(z_idx(t),3)-5,1):min(Zpoints(z_idx(t),3)+5,size(starmap_moved,3))))),[],3);
     
     I(:,:,1)=[A A.*B zeros(size(B))];
     I(:,:,2)=[zeros(size(A)) zeros(size(A)) zeros(size(B))];
@@ -295,8 +282,8 @@ for t=1:length(R)
     figure(5)
     
     newpatchradius=patch_bound(Zpoints(z_idx(1),:),[200 200 20],size(Zstack_filt));
-    Ap=max(confocal_moved(Zpoints(z_idx(1),2)-newpatchradius(2):Zpoints(z_idx(1),2)+newpatchradius(2),Zpoints(z_idx(1),1)-newpatchradius(1):Zpoints(z_idx(1),1)+newpatchradius(1),max(Zpoints(z_idx(t),3)-5,1):min(Zpoints(z_idx(t),3)+5,size(confocal_moved,3))),[],3);
-    Bp=max(minmax(log1p(Zstack_filt(Zpoints(z_idx(1),2)-newpatchradius(2):Zpoints(z_idx(1),2)+newpatchradius(2),Zpoints(z_idx(1),1)-newpatchradius(1):Zpoints(z_idx(1),1)+newpatchradius(1),max(Zpoints(z_idx(t),3)-5,1):min(Zpoints(z_idx(t),3)+5,size(confocal_moved,3))))),[],3);
+    Ap=max(starmap_moved(Zpoints(z_idx(1),2)-newpatchradius(2):Zpoints(z_idx(1),2)+newpatchradius(2),Zpoints(z_idx(1),1)-newpatchradius(1):Zpoints(z_idx(1),1)+newpatchradius(1),max(Zpoints(z_idx(t),3)-5,1):min(Zpoints(z_idx(t),3)+5,size(starmap_moved,3))),[],3);
+    Bp=max(minmax(log1p(Zstack_filt(Zpoints(z_idx(1),2)-newpatchradius(2):Zpoints(z_idx(1),2)+newpatchradius(2),Zpoints(z_idx(1),1)-newpatchradius(1):Zpoints(z_idx(1),1)+newpatchradius(1),max(Zpoints(z_idx(t),3)-5,1):min(Zpoints(z_idx(t),3)+5,size(starmap_moved,3))))),[],3);
     
     Ip(:,:,1)=[Ap Ap.*Bp zeros(size(Bp))];
     Ip(:,:,2)=[zeros(size(Ap)) zeros(size(Ap)) zeros(size(Bp))];

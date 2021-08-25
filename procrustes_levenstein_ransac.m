@@ -1,4 +1,4 @@
-function [pl_dist]=procrustes_levenstein_distance(X,Y,maxdist,indelcost,zmax)
+function [pl_dist,ransac]=procrustes_levenstein_ransac(X,Y,maxdist,indelcost,zmax)
 %% finds the levenstein distance between the k-nearest neighbor distances of two sets of points
 vec=@(x)(x(:));
 DX=squareform(pdist(X));
@@ -23,6 +23,7 @@ end
 kx=sum(DX<=maxdist,2);
 ky=sum(DY<=maxdist,2);
 pl_dist=inf(size(X,1),size(Y,1));
+ransac=zeros(size(X,1),size(Y,1),2);
 for i=1:size(X,1)
     for j=1:size(Y,1)
         [i j]
@@ -37,8 +38,14 @@ for i=1:size(X,1)
                 else
                     Xmatch=[X(i,:);X(nnx(i,x_candidates(ii,:)),:)];
                     Ymatch=Y(nny(j,flipud(match(:,2))),:);
-                    [R,T,beta]=wahba(Xmatch,Ymatch);
-                    pl_dist(i,j)=min(pl_dist(i,j),-sum(vec(pdist2(X*R+T,Y)<=indelcost)));
+                    [R,T,~]=wahba(Xmatch,Ymatch);
+                    angles=rad2deg(rotm2eul(R));
+                    if and(abs(angles(2))<30,abs(angles(3))<30)
+                       tmp=(pdist2(X*R+T,Y)<=indelcost);
+                       ransac(:,:,1)=ransac(:,:,1)+tmp;
+                       ransac(:,:,2)=max(ransac(:,:,2),tmp*sum(vec(tmp)));
+                    pl_dist(i,j)=min(pl_dist(i,j),-sum(vec(tmp)));
+                    end
                 end
             end
         end
