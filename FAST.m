@@ -24,9 +24,9 @@ sigma=2; %smoothing kernel to fill in gaps (to avoid spotty cells)
 
 %% Registration parameters
 radius_parameter = 200; % how big of a window around each cell we look for matching partners between modalities
-tightness_paramter = 10; % how close do two registered cells need to be to be considered a match
-max_depth_parameter = 20; % what is the maximum depth in z shall we look for matching cell neighbors
-
+tightness_parameter = 10; % how close do two registered cells need to be to be considered a match
+max_depth_parameter = 50; % what is the maximum depth in z shall we look for matching cell neighbors
+anglelimit=30; %maximum horizontal angle allowed
 
 %% load data
 if ~exist('confocalfile')
@@ -241,21 +241,26 @@ set(gca,'FontWeight','bold','FontSize',20,'TickLength',[0 0]);set(gcf,'Color','w
 % [R,T,beta]=weighted_wahba(Spoints,M*Zpoints,max(M.*exp(vol_dist./2*0.1^2),[],2));
 %
 
-[pl_dist]=procrustes_levenstein_distance(Spoints,Zpoints,radius_parameter,tightness_paramter,max_depth_parameter);
-[s_idx,z_idx]=find(pl_dist==min(pl_dist(:)));
-[R,T]=procrustes_levenstein_distance_decoder(Spoints,Zpoints,s_idx,z_idx,radius_parameter,tightness_paramter,max_depth_parameter);
+% [pl_dist]=procrustes_levenstein_distance(Spoints,Zpoints,radius_parameter,tightness_paramter,max_depth_parameter);
+% [s_idx,z_idx]=find(pl_dist==min(pl_dist(:)));
+% [R,T]=procrustes_levenstein_distance_decoder(Spoints,Zpoints,s_idx,z_idx,radius_parameter,tightness_paramter,max_depth_parameter);
 
+`
+[s_idx,z_idx]=find((pl_dist.*satisfies_anglelimit)==max(vec(pl_dist.*satisfies_anglelimit)));
+clear R;for t=1:size(s_idx,1);R{t}=maximal_rotation{s_idx(t),z_idx(t)};end
 
 %% Visualizing registration matches to certify by eye
 for t=1:length(R)
-    disp(['Showing solution ' num2str(t) ' out of ' num2str(length(R)) ' - number of matches: ' num2str(-pl_dist(s_idx(t),z_idx(t)))]);
-    bhat=[R{t};T{t}];
+    disp(['Showing solution ' num2str(t) ' out of ' num2str(length(R)) ' - number of matches: ' num2str(pl_dist(s_idx(t),z_idx(t)))]);
+    bhat=R{t};
     
     
     
     Zpointshat=[Spoints ones(size(Spoints,1),1)]*bhat;
     
-    [P.matched_cells_y,P.matched_cells_x]=find(pdist2(Zpoints,Zpointshat)<= 10);
+%     [P.matched_cells_y,P.matched_cells_x]=find(pdist2(Zpoints,Zpointshat)<= 2*tightness_parameter);
+    P.matched_cells_y=maximal_rotation_set{s_idx(t),z_idx(t)}(:,2);
+    P.matched_cells_x=maximal_rotation_set{s_idx(t),z_idx(t)}(:,1);
     figure(3)
     subplot(1,2,2)
     hold on
