@@ -163,37 +163,78 @@ end
 % confocal_filt2=confocal_filt2.*confocal_filt;
 % Zstack_filt2=Zstack_filt2.*Zstack_filt;
 
-%% pixel information extraction from each cell
-% figure
-% patchradius=[150 150 15];
-% for i=1:size(Spoints,1)
-%     newpatchradius=patch_bound(Spoints(i,[2 1 3]),patchradius(1:3),size(confocal_filt));
-%     S_patch{i}=max(confocal_filt(Spoints(i,2)-newpatchradius(1):Spoints(i,2)+newpatchradius(1),Spoints(i,1)-newpatchradius(2):Spoints(i,1)+newpatchradius(2),Spoints(i,3)-newpatchradius(3):Spoints(i,3)+newpatchradius(3)),[],3);
-%     S_patchsize{i}=size(S_patch{i});
-%     S_patch{i}=padarray(S_patch{i},floor([patchradius(1)+0.5 patchradius(2)+0.5]-floor(size(S_patch{i})/2)),'both');
-%     if size(S_patch{i},1)==2*patchradius(1)
-%         S_patch{i}(end+1,:)=0;
-%     end
-%         if size(S_patch{i},2)==2*patchradius(2)
-%         S_patch{i}(:,end+1)=0;
-%     end
-%     imagesc(S_patch{i});axis equal;axis off
-%     drawnow
-% end
-% for i=1:size(Zpoints,1)
-%     newpatchradius=patch_bound(Zpoints(i,[2 1 3]),patchradius(1:3),size(Zstack_filt));
-%     Z_patch{i}=max(Zstack_filt(Zpoints(i,2)-newpatchradius(1):Zpoints(i,2)+newpatchradius(1),Zpoints(i,1)-newpatchradius(2):Zpoints(i,1)+newpatchradius(2),Zpoints(i,3)-newpatchradius(3):Zpoints(i,3)+newpatchradius(3)),[],3);
-%     Z_patchsize{i}=size(Z_patch{i});
-%     Z_patch{i}=padarray(Z_patch{i},floor([patchradius(1)+0.5 patchradius(2)+0.5]-floor(size(Z_patch{i})/2)),'both');
-%     if size(Z_patch{i},1)==2*patchradius(1)
-%         Z_patch{i}(end+1,:)=0;
-%     end
-%         if size(Z_patch{i},2)==2*patchradius(2)
-%         Z_patch{i}(:,end+1)=0;
-%     end
-%     imagesc(Z_patch{i});axis equal;axis off
-%     drawnow
-% end
+% pixel information extraction from each cell
+figure
+patchradius=[150 150 15];
+for i=1:size(Spoints,1)
+    newpatchradius=patch_bound(Spoints(i,[2 1 3]),patchradius(1:3),size(confocal_filt));
+    S_patch{i}=max(confocal_filt(Spoints(i,2)-newpatchradius(1):Spoints(i,2)+newpatchradius(1),Spoints(i,1)-newpatchradius(2):Spoints(i,1)+newpatchradius(2),Spoints(i,3)-newpatchradius(3):Spoints(i,3)+newpatchradius(3)),[],3);
+    S_patchsize{i}=size(S_patch{i});
+    S_patch{i}=padarray(S_patch{i},floor([patchradius(1)+0.5 patchradius(2)+0.5]-floor(size(S_patch{i})/2)),'both');
+    if size(S_patch{i},1)==2*patchradius(1)
+        S_patch{i}(end+1,:)=0;
+    end
+        if size(S_patch{i},2)==2*patchradius(2)
+        S_patch{i}(:,end+1)=0;
+    end
+    imagesc(S_patch{i});axis equal;axis off
+    drawnow
+end
+sIM=[];
+t=0;
+for i=1:round(sqrt(length(S_patch)))
+    tmp=[];
+    for j=1:ceil(sqrt(length(S_patch)))
+        t=t+1;
+        try;tmp=[tmp linhistmatch(S_patch{t}(140:160,140:160),S_patch{1}(140:160,140:160),50,'regular')];
+        catch
+            tmp=[tmp zeros(21,21)];
+        end
+    end
+    sIM=[sIM;tmp];
+end
+
+for i=1:length(S_patch)
+    for j=1:length(S_patch)
+        Spatchsim(i,j)=corr(vec(S_patch{i}(140:160,140:160)),vec(S_patch{j}(140:160,140:160)));
+    end
+end
+
+for i=1:size(Zpoints,1)
+    newpatchradius=patch_bound(Zpoints(i,[2 1 3]),patchradius(1:3),size(Zstack_filt));
+    Z_patch{i}=max(Zstack_filt(Zpoints(i,2)-newpatchradius(1):Zpoints(i,2)+newpatchradius(1),Zpoints(i,1)-newpatchradius(2):Zpoints(i,1)+newpatchradius(2),Zpoints(i,3)-newpatchradius(3):Zpoints(i,3)+newpatchradius(3)),[],3);
+    Z_patchsize{i}=size(Z_patch{i});
+    Z_patch{i}=padarray(Z_patch{i},floor([patchradius(1)+0.5 patchradius(2)+0.5]-floor(size(Z_patch{i})/2)),'both');
+    if size(Z_patch{i},1)==2*patchradius(1)
+        Z_patch{i}(end+1,:)=0;
+    end
+        if size(Z_patch{i},2)==2*patchradius(2)
+        Z_patch{i}(:,end+1)=0;
+    end
+    imagesc(Z_patch{i});axis equal;axis off
+    drawnow
+end
+
+zIM=[];
+t=0;
+for i=1:round(sqrt(length(Z_patch)))
+    tmp=[];
+    for j=1:ceil(sqrt(length(Z_patch)))
+        t=t+1;
+        try;tmp=[tmp linhistmatch(Z_patch{t}(140:160,140:160),S_patch{1}(140:160,140:160),50,'regular')];
+        catch
+            tmp=[tmp zeros(21,21)];
+        end
+    end
+    zIM=[zIM;tmp];
+end
+
+
+for i=1:length(Z_patch)
+    for j=1:length(Z_patch)
+        Zpatchsim(i,j)=corr(vec(Z_patch{i}(140:160,140:160)),vec(Z_patch{j}(140:160,140:160)));
+    end
+end
 %
 % angles=linspace(0,360,20);
 % bestsofar=0;
@@ -245,7 +286,7 @@ set(gca,'FontWeight','bold','FontSize',20,'TickLength',[0 0]);set(gcf,'Color','w
 % [s_idx,z_idx]=find(pl_dist==min(pl_dist(:)));
 % [R,T]=procrustes_levenstein_distance_decoder(Spoints,Zpoints,s_idx,z_idx,radius_parameter,tightness_paramter,max_depth_parameter);
 
-`
+[pl_dist,maximal_rotation_set,satisfies_anglelimit,maximal_rotation,maximal_rotation_founders]=maximal_rotation_group(Spoints,Zpoints,radius_parameter,tightness_parameter,max_depth_parameter,anglelimit);
 [s_idx,z_idx]=find((pl_dist.*satisfies_anglelimit)==max(vec(pl_dist.*satisfies_anglelimit)));
 clear R;for t=1:size(s_idx,1);R{t}=maximal_rotation{s_idx(t),z_idx(t)};end
 
