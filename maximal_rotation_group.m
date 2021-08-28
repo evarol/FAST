@@ -29,7 +29,7 @@ numsearch=size(X,1)*size(Y,1);t=0;tic;
 for i=1:size(X,1)
     for j=1:size(Y,1)
         t=t+1;
-        if and(kx(i)>2,ky(i)>2)
+        if and(kx(i)>2,ky(j)>2)
             D=(pdist2(SX(i,1:kx(i))',SY(j,1:ky(j))')<=indelcost);
             xmatch=find(any(D==1,2));
             if length(xmatch)>2
