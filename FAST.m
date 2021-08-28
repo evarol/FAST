@@ -163,7 +163,7 @@ end
 % confocal_filt2=confocal_filt2.*confocal_filt;
 % Zstack_filt2=Zstack_filt2.*Zstack_filt;
 
-% pixel information extraction from each cell
+%% pixel information extraction from each cell
 figure
 patchradius=[150 150 15];
 for i=1:size(Spoints,1)
@@ -233,6 +233,13 @@ end
 for i=1:length(Z_patch)
     for j=1:length(Z_patch)
         Zpatchsim(i,j)=corr(vec(Z_patch{i}(140:160,140:160)),vec(Z_patch{j}(140:160,140:160)));
+    end
+end
+
+
+for i=1:length(S_patch)
+    for j=1:length(Z_patch)
+        SZpatchsim(i,j)=corr(vec(S_patch{i}(140:160,140:160)),vec(Z_patch{j}(140:160,140:160)));
     end
 end
 %

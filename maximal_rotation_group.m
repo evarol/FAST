@@ -42,7 +42,7 @@ for i=1:size(X,1)
                         for j2=1:length(y_candidates2)
                             y_set=[j nny(j,y_candidates1(j1)) nny(j,y_candidates2(j2))]';
                             if isrotation(DX(x_set,x_set),DY(y_set,y_set),indelcost)
-                                [x_new,y_new]=growrotation(DX,DY,x_set,y_set,indelcost);
+                                [x_new,y_new]=growrotation(DX,DY,x_set,y_set,indelcost,X,Y,anglelimit);
                                 if length(x_new)>max_rotation_dist(i,j)
                                     max_rotation_dist(i,j)=length(x_new);
                                     maximal_rotation_set{i,j}=[x_new,y_new];
@@ -79,7 +79,7 @@ else
 end
 end
 
-function [x_set,y_set]=growrotation(DX,DY,x_founders,y_founders,indelcost)
+function [x_set,y_set]=growrotation(DX,DY,x_founders,y_founders,indelcost,X,Y,anglelimit);
 vec=@(x)(x(:));
 x_candidates=setdiff((1:size(DX,1))',x_founders);
 y_candidates=setdiff((1:size(DY,1))',y_founders);
@@ -92,19 +92,23 @@ x_fin_sel=[];
 y_fin_sel=[];
 
 %% its choosing more stuff - going away from founders
-for i=1:size(x_sel,1) % for each candidate, compute the maximal rotation set (abs maximal is all of them)
-    subDXDY=pdist2(DX(x_candidates,[x_founders;x_candidates(x_sel(i))]),DY(y_candidates,[y_founders;y_candidates(y_sel(i))]));
-    [x_subsel,y_subsel]=find(subDXDY<=indelcost);
-    set_size= sum(and(isunique(x_subsel),isunique(y_subsel)));
-    set_closeness= max(vec(subDXDY(x_subsel,y_subsel)));
-    if set_size>=max_set
-        max_set=set_size;
-        if set_closeness<max_closeness
-            max_closeness=set_closeness;
-            x_fin_sel=[x_candidates(x_subsel)];
-            y_fin_sel=[y_candidates(y_subsel)];
+for i=1:size(x_sel,1)
+    R=wahba(X([x_founders;x_candidates(x_sel(i))],:),Y([y_founders;y_candidates(y_sel(i))],:));
+    angles=rad2deg(rotm2eul(R));
+    if and(abs(angles(2))<anglelimit,abs(angles(3))<anglelimit)
+        subDXDY=pdist2(DX(x_candidates,[x_founders;x_candidates(x_sel(i))]),DY(y_candidates,[y_founders;y_candidates(y_sel(i))]));
+        [x_subsel,y_subsel]=find(subDXDY<=indelcost);
+        set_size= sum(and(isunique(x_subsel),isunique(y_subsel)));
+        set_closeness= max(vec(subDXDY(x_subsel,y_subsel)));
+        if set_size>=max_set
+            max_set=set_size;
+            if set_closeness<max_closeness
+                max_closeness=set_closeness;
+                x_fin_sel=[x_candidates(x_subsel)];
+                y_fin_sel=[y_candidates(y_subsel)];
+            end
+            
         end
-        
     end
 end
 x_set=[x_founders;x_fin_sel];
